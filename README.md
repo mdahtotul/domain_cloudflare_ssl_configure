@@ -234,6 +234,12 @@ sudo chmod 600 /root/ssl_certificates/*
 sudo chown root:www-data /root/ssl_certificates/*
 ```
 
-## 4. Visit your website with https://
+## 4. Configure DNS
+
+From the left sidebar go to **_DNS ➡️ Records_** <br/>
+Add or edit dns record with proxy status on and save. Also wait for some times 1-10 minutes.
+![DNS RECORD](assets/dns_record.jpeg)
+
+## 5. Visit your website with https://
 
 <!-- ![image](assets) -->
