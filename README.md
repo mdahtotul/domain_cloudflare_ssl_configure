@@ -242,4 +242,249 @@ Add or edit dns record with proxy status on and save. Also wait for some times 1
 
 ## 5. Visit your website with https://
 
+# Server Security: Optional but Important
+
+## 6. Install Fail2Ban
+
+```
+sudo apt install fail2ban -y
+```
+
+## 7. Create a Local Configuration File
+
+```
+sudo nano /etc/fail2ban/jail.local
+```
+
+Copy the below settings in jail.local
+
+```
+[DEFAULT]
+bantime  = 3600
+findtime  = 600
+maxretry = 5
+backend = auto
+destemail = root@localhost
+action = %(action_)s
+
+[sshd]
+enabled  = true
+port     = ssh
+filter   = sshd
+logpath  = /var/log/auth.log
+maxretry = 3
+
+[nginx-botsearch]
+enabled  = true
+port     = http,https
+filter   = nginx-botsearch
+logpath  = /var/log/nginx/access.log
+maxretry = 2
+bantime  = 3600
+findtime = 300
+
+[nginx-http-auth]
+enabled  = true
+port     = http,https
+filter   = nginx-http-auth
+logpath  = /var/log/nginx/error.log
+maxretry = 3
+bantime  = 3600
+findtime = 300
+
+[nginx-nouseragent]
+enabled  = true
+filter   = nginx-nouseragent
+action   = iptables[name=NoUserAgent, port=http, protocol=tcp]
+logpath  = /var/log/nginx/access.log
+bantime  = 3600
+findtime = 600
+maxretry = 5
+
+[nginx-ddos]
+enabled  = true
+filter   = nginx-ddos
+action   = iptables[name=DDOS, port=http, protocol=tcp]
+logpath  = /var/log/nginx/access.log
+bantime  = 3600
+findtime = 60
+maxretry = 100
+
+[nginx-badbots]
+enabled  = true
+filter   = nginx-badbots
+logpath  = /var/log/nginx/access.log
+bantime  = 3600
+findtime = 600
+maxretry = 1
+
+[nginx-404]
+enabled  = true
+filter   = nginx-404
+logpath  = /var/log/nginx/access.log
+maxretry = 10
+findtime = 60
+bantime = 600
+
+[recidive]
+enabled  = true
+logpath  = /var/log/fail2ban.log
+bantime  = 86400
+findtime = 86400
+```
+
+## 8. Add Custom Filters
+
+Go inside `filter.d` directory
+
+```
+cd /etc/fail2ban/filter.d
+```
+
+Then add some custom filters (`sshd`, `nginx-botsearch`, `nginx-http-auth` these filters should be defined already.)
+
+### 8.1 `nginx-404.conf`
+
+```
+sudo nano nginx-404.conf
+```
+
+Copy and Paste below logic
+
+```
+[Definition]
+failregex = ^<HOST> -.*"(GET|POST).*" 404
+ignoreregex =
+```
+
+### 8.2 `nginx-badbots.conf`
+
+```
+sudo nano nginx-badbots.conf
+```
+
+Copy and Paste below logic
+
+```
+[Definition]
+failregex = ^<HOST> -.*?"GET .*?" 200 .*?"(libwww-perl|Python-urllib|scrapy|wget|curl|bot|spider|scanner)"
+ignoreregex =
+```
+
+### 8.3 `nginx-ddos.conf`
+
+```
+sudo nano nginx-ddos.conf
+```
+
+Copy and Paste below logic
+
+```
+[Definition]
+failregex = ^<HOST> -.*"(GET|POST).*HTTP.*"
+ignoreregex =
+```
+
+### 8.4 `nginx-nouseragent.conf`
+
+```
+sudo nano nginx-nouseragent.conf
+```
+
+Copy and Paste below logic
+
+```
+[Definition]
+failregex = ^<HOST> -.*?"GET .*?" 200 .*?"-"$
+ignoreregex =
+```
+
+## 9. Restart, Activate, Check Fail2Ban
+
+Restart `fail2ban`
+
+```
+sudo systemctl restart fail2ban
+```
+
+Activate `fail2ban`
+
+```
+sudo systemctl enable fail2ban
+```
+
+Check `fail2ban`
+
+```
+sudo fail2ban-client status
+```
+
+Check `fail2ban` specific jail
+
+```
+sudo fail2ban-client status nginx-botsearch
+```
+
+`Live monitoring:` Check continuous logs
+
+```
+sudo tail -f /var/log/fail2ban.log
+```
+
+`Search bans:` Check for bans
+
+```
+sudo grep 'Ban' /var/log/fail2ban.log
+```
+
+## 10. Frequently Used Commands
+
+`Count requests:` Count requests per IP
+
+- `awk '{print $1}'` → extract the first field (IP address)
+- `sort` → sort the IPs
+- `uniq -c` → count each unique IP
+- `sort -nr` → sort numerically, reverse (most requests first)
+- `head -20` → top 20 IPs
+
+```
+awk '{print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -nr | head -20
+```
+
+`For Recent Activity:`
+
+```
+grep "$(date -d '10 minutes ago' '+%d/%b/%Y:%H:%M')" /var/log/nginx/access.log | awk '{print $1}' | sort | uniq -c | sort -nr | head -20
+```
+
+or
+
+```
+sudo tail -n 10000 /var/log/nginx/access.log | awk '{print $1}' | sort | uniq -c | sort -nr | head -20
+```
+
+`Path: /api/login:`
+
+```
+grep "/api/login" /var/log/nginx/access.log | awk '{print $1}' | sort | uniq -c | sort -nr | head -20
+```
+
+`Error 404`
+
+```
+awk '$9 ~ /^404$/' /var/log/nginx/access.log | awk '{print $1}' | sort | uniq -c | sort -nr | head -20
+```
+
+`Resource Monitor`
+
+```
+htop
+```
+
+If you don't have it install by running
+
+```
+sudo apt install htop
+```
+
 <!-- ![image](assets) -->
